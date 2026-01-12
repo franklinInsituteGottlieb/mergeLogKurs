@@ -1,0 +1,13 @@
+services:
+  - type: cron
+    name: sheets-join-cron
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 sheets_join.py
+    schedule: "0 * * * *"  # Jede Stunde ausführen (kannst du anpassen)
+    envVars:
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false  # Muss manuell in Render Dashboard gesetzt werden
+      - key: PYTHON_VERSION
+        value: 3.9.0
