@@ -173,8 +173,6 @@ def write_to_sheet(client, sheet_id, sheet_name, data):
         # Prüfe ob Sheet bereits existiert
         try:
             worksheet = spreadsheet.worksheet(sheet_name)
-            # Lösche vorhandene Daten
-            worksheet.clear()
         except gspread.exceptions.WorksheetNotFound:
             # Erstelle neues Sheet
             worksheet = spreadsheet.add_worksheet(title=sheet_name, rows=1000, cols=10)
@@ -198,11 +196,36 @@ def write_to_sheet(client, sheet_id, sheet_name, data):
                 row.get('vertical', '')
             ])
         
-        # Alle Daten auf einmal schreiben (Batch-Update)
-        logger.info(f"Schreibe {len(data)} Zeilen in einem Batch...")
-        worksheet.update(values=all_rows, range_name='A1', value_input_option='RAW')
+        # Nur Spalten A-F leeren (nicht die ganze Tabelle, damit Spalte G erhalten bleibt)
+        logger.info("Lösche nur Spalten A-F...")
+        worksheet.batch_clear(["A:F"])
         
-        logger.info(f"✓ {len(data)} Zeilen erfolgreich in '{sheet_name}' geschrieben.")
+        # Daten in A-F schreiben
+        logger.info(f"Schreibe {len(data)} Zeilen in einem Batch...")
+        worksheet.update(values=all_rows, range_name="A1", value_input_option="RAW")
+        
+        # Formel in Spalte G setzen (nur wenn noch nicht vorhanden)
+        try:
+            # Prüfe ob G1 bereits einen Header hat
+            g1_value = worksheet.acell('G1').value
+            if not g1_value:
+                worksheet.update("G1", [["date_int"]], value_input_option="RAW")
+                logger.info("Header 'date_int' in Spalte G gesetzt")
+        except:
+            worksheet.update("G1", [["date_int"]], value_input_option="RAW")
+            logger.info("Header 'date_int' in Spalte G gesetzt")
+        
+        try:
+            # Prüfe ob G2 bereits eine Formel hat
+            g2_value = worksheet.acell('G2').value
+            if not g2_value or not g2_value.startswith('='):
+                worksheet.update("G2", [["=ARRAYFORMULA(IF(LEN(B2:B)=0,,INT(B2:B)))"]], value_input_option="USER_ENTERED")
+                logger.info("Formel in Spalte G gesetzt")
+        except:
+            worksheet.update("G2", [["=ARRAYFORMULA(IF(LEN(B2:B)=0,,INT(B2:B)))"]], value_input_option="USER_ENTERED")
+            logger.info("Formel in Spalte G gesetzt")
+        
+        logger.info(f"✓ {len(data)} Zeilen erfolgreich in '{sheet_name}' geschrieben (Spalten A-F).")
         
     except Exception as e:
         logger.error(f"Fehler beim Schreiben in das Sheet: {e}", exc_info=True)
